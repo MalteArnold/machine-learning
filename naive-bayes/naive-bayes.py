@@ -2,62 +2,46 @@
 # Naive Bayes
 import numpy as np
 import pandas as pd
+from sklearn.naive_bayes import BernoulliNB, GaussianNB, MultinomialNB
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import scale
-from sklearn.metrics import mean_squared_error
-import statsmodels.api as sm
 
-def load_enrollment_data():
+def load_spambase_data():
     """
-    Load and return the enrollment forecast data.
+    Load and return the Spambase dataset.
 
     Returns:
     -------
     pd.DataFrame
-        DataFrame containing enrollment forecast data.
+        DataFrame containing the Spambase dataset.
     """
-    enroll = pd.read_csv("enrollment_forecast.csv")
-    enroll.columns = ["year", "roll", "unem", "hgrad", "inc"]
-    return enroll
+    dataset = np.loadtxt("spambase.csv", delimiter=",")
+    return pd.DataFrame(dataset)
 
-def visualize_data(enroll):
+def prepare_spambase_data(df):
     """
-    Visualize the data using pairplot and display the correlation matrix.
+    Prepare Spambase data for classification.
 
     Parameters:
     -----------
-    enroll : pd.DataFrame
-        DataFrame containing the enrollment forecast data.
-    """
-    sns.pairplot(enroll)
-    plt.show()
-
-    # Check for correlation
-    print(enroll.corr())
-
-def prepare_regression_data(enroll):
-    """
-    Prepare data for regression.
-
-    Parameters:
-    -----------
-    enroll : pd.DataFrame
-        DataFrame containing the enrollment forecast data.
+    df : pd.DataFrame
+        DataFrame containing the Spambase dataset.
 
     Returns:
     --------
     tuple
         Tuple containing predictors and target arrays.
     """
-    enroll_data = enroll.iloc[:, [2, 3]].values
-    enroll_target = enroll.iloc[:, 1].values
-    return enroll_data, enroll_target
+    X = df.iloc[:, 0:48].values
+    y = df.iloc[:, -1].values
+    dfX = pd.DataFrame(X)
+    dfy = pd.DataFrame(y)
+    return X, y, dfX, dfy
 
-def perform_linear_regression(X, y):
+def split_data(X, y):
     """
-    Perform linear regression.
+    Split the data into training and test sets.
 
     Parameters:
     -----------
@@ -68,68 +52,117 @@ def perform_linear_regression(X, y):
 
     Returns:
     --------
-    sklearn.linear_model.LinearRegression
-        Trained linear regression model.
+    tuple
+        Tuple containing training and test sets.
     """
-    LinReg = LinearRegression()
-    LinReg.fit(X, y)
-    return LinReg
+    return train_test_split(X, y, test_size=0.33, random_state=42)
 
-def evaluate_regression_model(model, X, y):
+def fit_and_predict(model, X_train, y_train, X_test):
     """
-    Evaluate the linear regression model and display diagnostic measures.
+    Fit the Naive Bayes model and make predictions.
 
     Parameters:
     -----------
-    model : sklearn.linear_model.LinearRegression
-        Trained linear regression model.
-    X : np.ndarray
-        Array of predictors.
-    y : np.ndarray
-        Array of target values.
+    model : sklearn.naive_bayes
+        Naive Bayes model (e.g., BernoulliNB, MultinomialNB, GaussianNB).
+    X_train : np.ndarray
+        Array of predictors for training.
+    y_train : np.ndarray
+        Array of target values for training.
+    X_test : np.ndarray
+        Array of predictors for testing.
+
+    Returns:
+    --------
+    tuple
+        Tuple containing predicted values and the trained model.
     """
-    # R² value
-    r2 = model.score(X, y)
-    print(f'R² value: {r2}')
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    return y_pred, model
 
-    # Adjusted R²
-    n = len(y)
-    p = X.shape[1]
-    adjusted_r2 = 1 - (1 - r2) * (n - 1) / (n - p - 1)
-    print(f'Adjusted R²: {adjusted_r2}')
+def evaluate_accuracy(y_expect, y_pred):
+    """
+    Evaluate and print the accuracy score.
 
-    # Residual Analysis
-    y_pred = model.predict(X)
-    residuals = y - y_pred
+    Parameters:
+    -----------
+    y_expect : np.ndarray
+        Array of expected target values.
+    y_pred : np.ndarray
+        Array of predicted target values.
+    """
+    accuracy = metrics.accuracy_score(y_expect, y_pred)
+    print(f'Accuracy: {accuracy:.4f}')
 
-    # Residual plot
-    plt.figure(figsize=(8, 4))
-    plt.scatter(y_pred, residuals)
-    plt.title('Residual Plot')
-    plt.xlabel('Predicted Values')
-    plt.ylabel('Residuals')
-    plt.axhline(y=0, color='r', linestyle='--')
-    plt.show()
+def additional_diagnostics(y_expect, y_pred_proba):
+    """
+    Print additional diagnostic measures (Confusion Matrix, Classification Report, ROC Curve, AUC).
 
-    # QQ-plot of residuals
-    sm.qqplot(residuals, line='s')
+    Parameters:
+    -----------
+    y_expect : np.ndarray
+        Array of expected target values.
+    y_pred_proba : np.ndarray
+        Array of predicted probabilities.
+    """
+    # Confusion Matrix and Classification Report
+    print("Confusion Matrix:")
+    print(metrics.confusion_matrix(y_expect, y_pred))
+    print("\nClassification Report:")
+    print(metrics.classification_report(y_expect, y_pred))
+
+    # ROC Curve and AUC
+    fpr, tpr, thresholds = metrics.roc_curve(y_expect, y_pred_proba)
+    auc = metrics.auc(fpr, tpr)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, label=f'AUC = {auc:.2f}')
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
+    plt.title('ROC Curve')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.legend()
     plt.show()
 
 if __name__ == "__main__":
     # Load data
-    enroll = load_enrollment_data()
-
-    # Visualize data
-    visualize_data(enroll)
+    spambase_data = load_spambase_data()
 
     # Prepare data
-    enroll_data, enroll_target = prepare_regression_data(enroll)
+    X, y, dfX, dfy = prepare_spambase_data(spambase_data)
 
-    # Scale the data
-    X, y = scale(enroll_data), enroll_target
+    # Split the data
+    X_train, X_test, y_train, y_test = split_data(X, y)
 
-    # Perform linear regression
-    LinReg = perform_linear_regression(X, y)
+    # Create and fit binary model BernoulliNB
+    BernNB = BernoulliNB(binarize=True)
+    y_pred, _ = fit_and_predict(BernNB, X_train, y_train, X_test)
 
-    # Evaluate the model
-    evaluate_regression_model(LinReg, X, y)
+    # Evaluate accuracy
+    evaluate_accuracy(y_test, y_pred)
+
+    # Create and fit multinomial model
+    MultiNB = MultinomialNB()
+    y_pred, _ = fit_and_predict(MultiNB, X_train, y_train, X_test)
+
+    # Evaluate accuracy
+    evaluate_accuracy(y_test, y_pred)
+
+    # Create and fit Gaussian model
+    GausNB = GaussianNB()
+    y_pred, _ = fit_and_predict(GausNB, X_train, y_train, X_test)
+
+    # Evaluate accuracy
+    evaluate_accuracy(y_test, y_pred)
+
+    # Create and fit binary model BernoulliNB with different binarize value
+    BernNB = BernoulliNB(binarize=0.1)
+    y_pred, _ = fit_and_predict(BernNB, X_train, y_train, X_test)
+
+    # Evaluate accuracy
+    evaluate_accuracy(y_test, y_pred)
+
+    # Additional Diagnostics
+    y_pred_proba = BernNB.predict_proba(X_test)[:, 1]
+    additional_diagnostics(y_test, y_pred_proba)
