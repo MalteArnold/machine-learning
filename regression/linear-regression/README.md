@@ -1,0 +1,1 @@
+This Python code analyzes enrollment data through linear regression. It loads and prepares the data, visualizes its structure, and performs linear regression, assessing the model's goodness of fit and conducting residual analysis for diagnostic insights. The results, including R² value and adjusted R², help evaluate the model's accuracy and overall performance.
